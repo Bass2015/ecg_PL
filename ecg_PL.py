@@ -35,6 +35,25 @@ def plot_signal(signal):
     fig.update_layout(hovermode='closest')
     return fig
 
+def plot_signal_and_peaks(signal, peaks):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=np.arange(len(signal)), 
+                             y= signal, 
+                             line={'width':0.9, 'color':'blue'}, 
+                             name='ECG signal'))
+    fig.add_trace(go.Scatter(x=peaks, 
+                             y= signal[peaks], 
+                             mode='markers', 
+                             opacity=0.5,
+                             marker={
+                                 'size': 12,
+                                 'line': {'width':2, 'color':'red'},
+                                 'color':'white',
+                             }, 
+                             name='Labeled peak'))
+    fig.update_layout(hovermode='closest')
+    return fig
+
 def save_peaks(peaks):
     record = st.session_state.selected_record
     st.session_state['records_df'].at[record, 'peaks'] = peaks
@@ -67,14 +86,27 @@ def clear_peaks(col):
         return
     peaks.clear()
 
-if __name__ == '__main__':
-    st.set_page_config(layout='wide')
+def header():
+    st.radio("Mode", ['Labeling', 'Revision'], key='app_mode')
     col1, col2, col3 = st.columns([3, 2, 5])
     col2.button('Clear peaks', on_click=clear_peaks, args=[col3])
+    return col1
+
+if __name__ == '__main__':
+    st.set_page_config(layout='wide')
+    col1 = header()
     st.session_state['records_df'] = pd.read_pickle('records_df.pkl')
-    unlabeled = st.session_state['records_df'].loc[~st.session_state['records_df']['labeled']].index
-    record = col1.selectbox('Unlabeled', unlabeled, key='selected_record')
-    plot = plot_signal(st.session_state['records_df'].loc[record, 'ecg'])
+    if st.session_state.app_mode == 'Labeling':
+        unlabeled = st.session_state['records_df'].loc[~st.session_state['records_df']['labeled']].index
+        record = col1.selectbox('Unlabeled', unlabeled, key='selected_record')
+        signal = st.session_state['records_df'].loc[record, 'ecg']
+        plot = plot_signal(signal)
+    elif st.session_state.app_mode == 'Revision':
+        labeled = st.session_state['records_df'].loc[st.session_state['records_df']['labeled']].index
+        selected = col1.selectbox('Labeled', labeled, key='selected_lbl_record')
+        signal = st.session_state['records_df'].loc[selected, 'ecg']
+        peaks = st.session_state['records_df'].loc[selected, 'peaks']
+        plot = plot_signal_and_peaks(signal, peaks)
     capture_click(plot)
     peak_selection_form()
     
